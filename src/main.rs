@@ -4,6 +4,10 @@ mod address;
 mod cli;
 mod worker;
 
+// Conditionally compile the GPU worker module only when the 'gpu' feature is enabled.
+#[cfg(feature = "gpu")]
+mod gpu_worker;
+
 use crate::cli::Cli;
 use crate::worker::search;
 use clap::Parser;
@@ -20,11 +24,43 @@ fn main() {
     // Parse command-line arguments
     let cli = Cli::parse();
 
+    // --- GPU PATH ---
     if cli.gpu {
-        println!("⚠️ Warning: GPU acceleration is not yet implemented. Falling back to CPU.");
-        // When implemented, this would call `worker::search_gpu(...)`
-    }
+        #[cfg(feature = "gpu")]
+        {
+            // GPU feature is enabled, run the async GPU worker.
+            println!("[*] GPU mode selected.");
+            let (sender, receiver) = mpsc::channel();
+            let should_stop = Arc::new(AtomicBool::new(false));
 
+            // The GPU worker is an async function, so we use pollster to block and run it.
+            let gpu_future = gpu_worker::search(cli.suffixes, sender, &should_stop);
+            pollster::block_on(gpu_future);
+
+            if let Ok(found) = receiver.try_recv() {
+                println!("\n🎉 GPU Found a match!");
+                println!("----------------------------------------");
+                println!("Address:      {}", found.address);
+                println!("Private Key:  {}", found.private_key_hex);
+                println!("----------------------------------------");
+            }
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
+            // GPU flag was used, but the feature was not enabled at compile time.
+            println!("⚠️ Warning: GPU mode selected, but the program was not compiled with the 'gpu' feature.");
+            println!("Falling back to CPU mode. To enable GPU, compile with: cargo build --release --features gpu");
+            run_cpu_search(cli);
+        }
+    }
+    // --- CPU PATH ---
+    else {
+        run_cpu_search(cli);
+    }
+}
+
+/// The original CPU-based search logic.
+fn run_cpu_search(cli: Cli) {
     // --- Calculate and print expected attempts ---
     let total_prob: f64 = cli
         .suffixes
@@ -33,8 +69,8 @@ fn main() {
         .sum();
     let expected_attempts = (1.0 / total_prob) * cli.count as f64;
     println!(
-        "[*] Estimated attempts required: {:e} (to find {})",
-        expected_attempts, cli.count
+        "[*] Estimated attempts required: {} (to find {})",
+        expected_attempts as u64, cli.count
     );
 
     // Determine the number of threads to use
@@ -45,7 +81,7 @@ fn main() {
         .unwrap();
 
     println!(
-        "🔍 Searching for addresses ending with: {:?} on {} threads...",
+        "🔍 Searching for addresses ending with: {:?} on {} CPU threads...",
         cli.suffixes, num_threads
     );
 
@@ -65,9 +101,10 @@ fn main() {
             while !should_stop_clone.load(Ordering::Relaxed) {
                 thread::sleep(check_interval);
                 let current_attempts = attempts_clone.load(Ordering::Relaxed);
-                let speed = (current_attempts - last_check_attempts) as f64 / check_interval.as_secs_f64();
+                let speed =
+                    (current_attempts - last_check_attempts) as f64 / check_interval.as_secs_f64();
                 last_check_attempts = current_attempts;
-                print!("\r[*] Speed: {} checks/sec", speed as u64);
+                print!("\r[*] CPU Speed: {} checks/sec", speed as u64);
                 let _ = stdout().flush();
             }
         });

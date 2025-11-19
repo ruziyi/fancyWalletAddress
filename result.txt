@@ -1,0 +1,10 @@
+[*] Estimated attempts required: 3.3640000000000005e3 (to find 1)
+🔍 Searching for addresses ending with: ["88"] on 8 CPU threads...
+
+🎉 Found a match! (1/1)
+----------------------------------------
+Address:      TFxL2ZwbE7To6NfQai7C9641vQKpde1P88
+Private Key:  d93b5b5502745b971ec627e4ee87f007f227b93bdfc06be767863df0d53808f1
+----------------------------------------
+
+✅ Desired count reached. Exiting.
