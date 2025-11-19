@@ -5,13 +5,6 @@ use sha2::{Digest, Sha256};
 use tiny_keccak::{Hasher, Keccak};
 
 /// Generates a Tron address from a secp256k1 public key.
-///
-/// # Process:
-/// 1. Take the uncompressed public key (65 bytes, starting with 0x04).
-/// 2. Perform a Keccak-256 hash on the public key bytes *excluding* the leading 0x04.
-/// 3. Take the last 20 bytes of the Keccak-256 hash.
-/// 4. Prepend the Tron address prefix `0x41`.
-/// 5. Base58Check encode the resulting 21 bytes.
 pub fn public_key_to_tron_address(pk: &PublicKey) -> String {
     // 1. Get uncompressed public key (65 bytes: 0x04 + 32 bytes X + 32 bytes Y)
     let pk_uncompressed = pk.serialize_uncompressed();
@@ -22,21 +15,14 @@ pub fn public_key_to_tron_address(pk: &PublicKey) -> String {
     let mut hashed_pk = [0u8; 32];
     keccak.finalize(&mut hashed_pk);
 
-    // 3. Take the last 20 bytes
+    // 3. Take the last 20 bytes and prepend Tron address prefix
     let mut address_payload = [0u8; 21];
-    address_payload[0] = 0x41; // 4. Prepend Tron address prefix
+    address_payload[0] = 0x41;
     address_payload[1..].copy_from_slice(&hashed_pk[12..]);
 
-    // 5. Base58Check encode
-    base58check_encode(&address_payload)
-}
-
-/// Performs Base58Check encoding on a payload.
-/// This involves creating a checksum by double-SHA256 hashing the payload,
-/// taking the first 4 bytes of the hash, and appending it to the payload before Base58 encoding.
-fn base58check_encode(payload: &[u8]) -> String {
+    // 4. Create checksum by double-SHA256
     let mut hasher1 = Sha256::new();
-    hasher1.update(payload);
+    hasher1.update(&address_payload);
     let hash1 = hasher1.finalize();
 
     let mut hasher2 = Sha256::new();
@@ -45,10 +31,12 @@ fn base58check_encode(payload: &[u8]) -> String {
 
     let checksum = &hash2[0..4];
 
-    let mut final_payload = Vec::with_capacity(payload.len() + 4);
-    final_payload.extend_from_slice(payload);
+    // 5. Append checksum to payload
+    let mut final_payload = Vec::with_capacity(25);
+    final_payload.extend_from_slice(&address_payload);
     final_payload.extend_from_slice(checksum);
 
+    // 6. Base58 encode the final payload
     bs58::encode(final_payload).into_string()
 }
 
@@ -71,15 +59,6 @@ mod tests {
         let generated_address = public_key_to_tron_address(&public_key);
 
         assert_eq!(generated_address, expected_address);
-    }
-
-    #[test]
-    fn test_base58check_encoding() {
-        // Test vector from Bitcoin wiki for a different prefix, but logic is the same.
-        let payload = hex::decode("00010966776006953D5567439E5E39F86A0D273BEED61967F6").unwrap();
-        let expected_encoded = "16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM";
-        let encoded = base58check_encode(&payload);
-        assert_eq!(encoded, expected_encoded);
     }
 }
 

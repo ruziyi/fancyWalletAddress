@@ -78,7 +78,13 @@ fn main() {
     let should_stop_clone = Arc::clone(&should_stop);
     let attempts_clone = Arc::clone(&attempts);
     thread::spawn(move || {
-        search(suffixes, sender, &should_stop_clone, &attempts_clone);
+        search(
+            suffixes,
+            sender,
+            &should_stop_clone,
+            &attempts_clone,
+            num_threads,
+        );
     });
 
     // Main thread waits for results
