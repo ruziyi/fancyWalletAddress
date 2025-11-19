@@ -4,8 +4,8 @@ use crate::address::public_key_to_tron_address;
 use rayon::prelude::*;
 use secp256k1::{rand, Secp256k1};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Sender;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{mpsc::Sender, Arc};
 
 /// A struct to hold the result of a successful search.
 pub struct FoundWallet {
@@ -31,6 +31,7 @@ pub fn search(
     suffixes: Vec<String>,
     sender: Sender<FoundWallet>,
     should_stop: &AtomicBool,
+    attempts: &Arc<AtomicU64>,
 ) {
     // Pre-process suffixes for efficient lookup.
     let suffixes_by_len = group_suffixes_by_length(&suffixes);
@@ -42,6 +43,9 @@ pub fn search(
         if should_stop.load(Ordering::Relaxed) {
             return;
         }
+
+        // Increment the attempt counter for every iteration.
+        attempts.fetch_add(1, Ordering::Relaxed);
 
         // Generate a new wallet (keypair and address).
         // This is the hot loop.

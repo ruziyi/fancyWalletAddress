@@ -1,5 +1,9 @@
 # Tron Vanity Address Generator Makefile
 
+# Use rustup-managed cargo to avoid conflicts with homebrew installation
+SHELL := /bin/bash
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
 # Default target: build a release version for the current host system.
 build:
 	@echo "Building release binary for the host system..."
@@ -11,18 +15,14 @@ build:
 
 # Build for Linux (x86_64)
 linux:
-	@echo "Building for Linux (x86_64-unknown-linux-gnu) using Zig..."
-	@CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="zig cc -target x86_64-linux-gnu" \
-	RUSTFLAGS="-C linker=zig cc -target x86_64-linux-gnu" \
-	cargo build --release --target x86_64-unknown-linux-gnu
+	@echo "Building for Linux (x86_64-unknown-linux-gnu)..."
+	@cargo zigbuild --release --target x86_64-unknown-linux-gnu
 	@echo "Linux binary available at: target/x86_64-unknown-linux-gnu/release/fancy_wallet_address"
 
 # Build for Windows (x86_64, GNU toolchain)
 windows:
-	@echo "Building for Windows (x86_64-pc-windows-gnu) using Zig..."
-	@CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="zig cc -target x86_64-windows-gnu" \
-	RUSTFLAGS="-C linker=zig cc -target x86_64-windows-gnu" \
-	cargo build --release --target x86_64-pc-windows-gnu
+	@echo "Building for Windows (x86_64-pc-windows-gnu)..."
+	@cargo zigbuild --release --target x86_64-pc-windows-gnu
 	@echo "Windows binary available at: target/x86_64-pc-windows-gnu/release/fancy_wallet_address.exe"
 
 # Build for macOS (Apple Silicon)
