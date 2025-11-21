@@ -31,10 +31,10 @@ pub fn public_key_to_tron_address(pk: &PublicKey) -> String {
 
     let checksum = &hash2[0..4];
 
-    // 5. Append checksum to payload
-    let mut final_payload = Vec::with_capacity(25);
-    final_payload.extend_from_slice(&address_payload);
-    final_payload.extend_from_slice(checksum);
+    // 5. Append checksum to payload (stack-buffer to avoid heap allocs)
+    let mut final_payload = [0u8; 25];
+    final_payload[..21].copy_from_slice(&address_payload);
+    final_payload[21..].copy_from_slice(checksum);
 
     // 6. Base58 encode the final payload
     bs58::encode(final_payload).into_string()
@@ -61,4 +61,3 @@ mod tests {
         assert_eq!(generated_address, expected_address);
     }
 }
-
